@@ -1,3 +1,4 @@
+import os
 import sys
 
 from django.conf import settings
@@ -6,9 +7,10 @@ from django.http import HttpResponse
 
 
 settings.configure(
-  DEBUG=True,
-  SECRET_KEY="a-bad-secret",
-  ROOT_URLCONF=__name__,
+  DEBUG = os.environ.get("DEBUG", ""),
+  ALLOWED_HOST = ["*"],
+  SECRET_KEY = os.environ.get("SECRET_KEY", "a-bad-secret"),
+  ROOT_URLCONF = __name__,
 )
 
 
