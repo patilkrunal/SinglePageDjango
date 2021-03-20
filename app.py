@@ -8,6 +8,7 @@ from django.core.wsgi import get_wsgi_application
 from django.template import RequestContext, Template
 from django import forms
 
+CSV_LIST = "emaillist.csv"
 
 settings.configure(
   DEBUG = os.environ.get("DEBUG", ""),
@@ -27,18 +28,27 @@ class EnlistForm(forms.Form):
   email = forms.EmailField(
     required=True, 
     label=False, 
-    widget=forms.EmailInput(attrs={"placeholder": "Enter your mail id here"}))
+    widget=forms.EmailInput(attrs={"placeholder": "Enter your Email"}))
 
-  referrer = forms.CharField(widget=forms.HiddenInput())
+  referrer = forms.CharField(required=False, widget=forms.HiddenInput())
 
 
 def home(request):
   if request.method == "POST":
-    return HttpResponseRedirect("/thanks")
-  form = EnlistForm()
-  context = RequestContext(
-    request, {"content": "Sign up for early access", "form": form}
-  )
+    form = EnlistForm(request.POST)
+    if form.is_valid():
+      email = form.cleaned_data["email"]
+      referrer = form.cleaned_data["referrer"]
+      ip = request.META.get("REMOTE_ADDR")
+      
+      with open(CSV_LIST, "a") as csv:
+        csv.write(f"{email},{referrer},{ip}\n")
+      return HttpResponseRedirect("/thanks/")
+  else:
+    form = EnlistForm(initial={"referrer": request.META.get("HTTP_REFERER")})
+    context = RequestContext(
+      request, {"content": "Sign up for early access", "form": form}
+    )
 
   return HttpResponse(MAIN_HTML.render(context))
 
@@ -54,6 +64,7 @@ def thanks(request):
 
 urlpatterns = [
   path('', home),
+  path("thanks/", thanks),
 ]
 
 app = get_wsgi_application()
@@ -112,6 +123,7 @@ MAIN_HTML = Template("""
               {% csrf_token %}
               {{ form.non_field.errors }}
               {{ form.email.errors }}
+              {{ form.referrer.errors }}
               {{ form.referrer }}
               {{ form.email }}
               <button type="submit">Add me</button>
