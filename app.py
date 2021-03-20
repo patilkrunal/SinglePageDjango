@@ -3,22 +3,53 @@ import sys
 
 from django.conf import settings
 from django.urls import path
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from django.core.wsgi import get_wsgi_application
 from django.template import RequestContext, Template
+from django import forms
+
 
 settings.configure(
   DEBUG = os.environ.get("DEBUG", ""),
   ALLOWED_HOST = ["*"],
   SECRET_KEY = os.environ.get("SECRET_KEY", "a-bad-secret"),
   ROOT_URLCONF = __name__,
-  TEMPLATES=[{"BACKEND": "django.template.backends.django.DjangoTemplates"}]
+  TEMPLATES=[{"BACKEND": "django.template.backends.django.DjangoTemplates"}],
+  MIDDLEWARE_CLASSES = (
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.middleware.clickjacking.XFrameOptionMiddleware",
+  )
 )
 
 
+class EnlistForm(forms.Form):
+  email = forms.EmailField(
+    required=True, 
+    label=False, 
+    widget=forms.EmailInput(attrs={"placeholder": "Enter your mail id here"}))
+
+  referrer = forms.CharField(widget=forms.HiddenInput())
+
+
 def home(request):
-  context = RequestContext(request, {"content": "Amazing content here"})
+  if request.method == "POST":
+    return HttpResponseRedirect("/thanks")
+  form = EnlistForm()
+  context = RequestContext(
+    request, {"content": "Sign up for early access", "form": form}
+  )
+
   return HttpResponse(MAIN_HTML.render(context))
+
+def thanks(request):
+  context = RequestContext(
+    request, 
+    {"content": "Thank you for signing up. We will contact you!", "form": None}
+  )
+
+  return HttpResponse(MAIN_HTML.render(context))
+  
 
 
 urlpatterns = [
@@ -76,6 +107,16 @@ MAIN_HTML = Template("""
         <h2>Feel the future with affordable levitating cars.</h2>
         <div class="content">
           {{ content }}
+          {% if form %}
+            <form action='.' method="post" class"enlist_form">
+              {% csrf_token %}
+              {{ form.non_field.errors }}
+              {{ form.email.errors }}
+              {{ form.referrer }}
+              {{ form.email }}
+              <button type="submit">Add me</button>
+            </form>
+          {% endif %}
         </div>
       </div>
     </body>
